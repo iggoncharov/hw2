@@ -1,29 +1,28 @@
 import csv
 
 
-def csv_read(file: str) -> list:
+def read_file(file: str) -> list:
     """
-    Функция принимает на вход название csv-файла, считывает его
-    и превращает его в список словарей, каждый из которых
-    представляет данные по одному сотруднику. Функция нужна для
-    дальнейшего удобства работы с данными.
+    Функция принимает на вход название csv файла, считывает
+    и создает список состоящий из словарей с данными сотрудников.
     """
-    with open(file, newline='', encoding = 'utf-8') as csvfile:
-        raw_data = csv.reader(csvfile, delimiter=';')
+    with open(file, newline = '', encoding = 'utf8') as csvfile:
+        row_data = csv.reader(csvfile, delimiter = ';')
+        data1 = []
+        for row in row_data:
+            data1.append(row)
+        name_col = data1[0]
         data = []
-        for row in raw_data:
-            data.append(','.join(row))
-        employees = []
-        dict_keys = data[0].split(',')
-        for row in data[2::2]:
-            employees.append({dict_keys[i]: row.split(',')[i] for i in range(len(dict_keys))})
-    return employees
+        for row in data1[2::2]:
+            data.append({name_col[i]: row[i] for i in range(len(name_col))})
+    return data
 
 
-def report(data: list) -> None:
+def task(data: list) -> None:
     """
-    Функция считывает выбор пользователя и выполняет одну из трёх фукнций:
-    вывести все отделы, вывести сводный отчёт по отделам и
+    Функция считывает команду и выполняет одну из трёх фукнций:
+    вывести иерархию команд,
+    вывести сводный отчёт по отделам,
     сохранить сводный отчёт в csv-файл
     """
     print('Здравствуйте! Выберете, пожалуйста, одну из следующих опций:\n'
@@ -32,92 +31,82 @@ def report(data: list) -> None:
           '(3) Сохранить сводный отчёт в csv-файл'
           )
     option = ''
-    options = {'1': departments_info, '2': show_report, '3': save_report}
+    options = {'1': departments_info, '2': display_report, '3': save_report}
     while option not in options:
         print('Выберите: {}/{}/{}'.format(*options))
         option = input()
     return options[option](data)
 
 
-def departments_info(data: list, show: bool = True) -> set:
-    """
-    Функция печатает все уникальные отделы. Также функция
-    возвращает уникальный набор отделов, необходимый
-    для работы других функций.
-    """
-    departments = []
+def departments_info(data: list, show: bool = True):
+    departaments = []
     for row in data:
-        departments.append(row['Департамент'])
-    keys = set(departments)
-
-    departments_otdel = {a: [] for a in keys}
-
+        departaments.append(row['Департамент'])
+    departaments = set(departaments)
+    depart_otdel = {x: [] for x in departaments}
     for row in data:
-        if row['Отдел'] not in departments_otdel[row['Департамент']]:
-            departments_otdel[row['Департамент']].append(row['Отдел'])
+        if row['Отдел'] not in depart_otdel[row['Департамент']]:
+            depart_otdel[row['Департамент']].append(row['Отдел'])
+    if show:
+        s = "|" + "{:^20} |"
+        for dep in depart_otdel.keys():
+            print(s.format(dep), end='')
+            for i in depart_otdel[dep]:
+                print(s.format(i), end='')
+            print()
+    return depart_otdel
 
-    return departments_otdel
 
-
-def show_report(data: list, show: bool = True) -> list:
+def display_report(data: list, show: bool = True) -> list:
     """
-     Функция печатает сводный отчёт по отделам:
-     название, численность,
-     минимальная и максимальная зарплата,
-     средняя зарплата. Также, функция возвращает
-     список с характеристиками каждого отдела
-     для использования его в функции сохранения
-     в csv-файл.
+    Функция выводит статистику по департаментам:
+    Количестов сотрудников,
+    Минимальный оклад,
+    Максимальный оклад,
+    Средний оклад
     """
-    departments = departments_info(data, show=False)
+    departaments = departments_info(data, show = False).keys()
 
-    numbers = {k: 0 for k in departments}
-    minimum = {k: inf for k in departments}
-    maximum = {k: 0 for k in departments}
-    summ = {k: 0 for k in departments}
+    numbers = {k: 0 for k in departaments}
+    maximum = {k: 0 for k in departaments}
+    minimum = {k: 10000000 for k in departaments}
+    summa = {k: 0 for k in departaments}
 
     for person in data:
-        if person['Отдел'].find('->') != -1:
-            depart = person['Отдел'].split(' -> ')[1]
-        else:
-            depart = person['Отдел']
-        numbers[depart] += 1
-        if int(person['Оклад']) < minimum[depart]:
-            minimum[depart] = int(person['Оклад'])
-        if int(person['Оклад']) > maximum[depart]:
-            maximum[depart] = int(person['Оклад'])
-        summ[depart] += int(person['Оклад'])
+        numbers[person['Департамент']] += 1
 
-    average = {k: round(summ[k] / numbers[k], 2) for k in departments}
-    final = [[k, numbers[k], minimum[k], maximum[k], average[k]]
-             for k in departments]
+        if maximum[person['Департамент']] < int(person['Оклад']):
+            maximum[person['Департамент']] = int(person['Оклад'])
+
+        if minimum[person['Департамент']] > int(person['Оклад']):
+            minimum[person['Департамент']] = int(person['Оклад'])
+
+        summa[person['Департамент']] += int(person['Оклад'])
+
+    average = {k: int(round(summa[k] / numbers[k], -2)) for k in departaments}
+
+    all_dep = [[k, numbers[k], maximum[k], minimum[k], average[k]]
+               for k in departaments]
 
     if show:
-        s = "{:^20} | " * 4 + "{:^20}"
-        print(s.format('Название', 'Количество',
-                       'Минимум', 'Максимум', 'Среднее'))
-        print('_' * 108)
-        for i in final:
-            print(s.format(*i))
-    return final
+        s = "|" + "{:^18} | " * 5
+        print(s.format('Название', 'Число сотрудников', 'MAX оклад', 'MIN оклад', 'Средний оклад'))
+        print('-' * 41 + '$' * 64)
+        for dep in all_dep:
+            print(s.format(*dep))
+    return all_dep
 
 
-
-def save_report(data: list) -> None:
-    """
-    Функция сохраняет сводный отчёт в виде csv-файла
-    """
-    final = show_report(data, show=False)
-
-    with open('report.csv', 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(['Название', 'Количество',
-                         'Минимум', 'Максимум', 'Среднее'])
-        for i in final:
-            writer.writerow(i)
+def save_report(data: list):
+    dep = display_report(data, show = False)
+    columns = ['Название', 'Число сотрудников', 'MAX оклад', 'MIN оклад', 'Средний оклад']
+    with open('ans.csv', 'w') as file:
+        out_file = csv.writer(file, delimiter=';')
+        out_file.writerow(columns)
+        out_file.writerows(dep)
 
 
 if __name__ == '__main__':
     my_file = 'Corp Summary.csv'
-    my_data = csv_read(my_file)
-    report(my_data)
+    my_data = read_file(my_file)
+    task(my_data)
